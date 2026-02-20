@@ -44,7 +44,7 @@ How to Play
 
 Development Details
 
-Engine: Unity 2022+
+Engine: Unity 6
 Networking: Unity Netcode for GameObjects
 UI System: TextMeshPro & Unity UI
 
