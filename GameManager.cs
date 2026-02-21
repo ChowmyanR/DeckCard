@@ -13,7 +13,13 @@ public class GameManager : MonoBehaviour
     public int maxRounds = 6;
     private int round = 1;
 
+    [Header("Turn Timer")]
+    public float turnDuration = 30f;
+    private float currentTimer;
+    private bool timerRunning;
+
     private PlayerState currentTurn;
+    
 
     void Awake()
     {
@@ -44,6 +50,7 @@ public class GameManager : MonoBehaviour
             i++;
         }
     }
+    
     // CREATING DECKS, DRAWING CARDS, DECIDING THE FIRST TURN RANDOMLY
     void StartMatch()
     {
@@ -56,15 +63,75 @@ public class GameManager : MonoBehaviour
             player2.deck.DrawCard();
         }
 
-        currentTurn = Random.value > 0.5f ?
-                      player1 : player2;
+        currentTurn = Random.value > 0.5f ? player1 : player2;
 
         player1.StartTurn();
         player2.StartTurn();
+
+        StartTurnTimer();
+        SendTurnUpdate();
     }
+    // STARTING THE TURN TIMER
+    void StartTurnTimer()
+    {
+        if(!NetworkManager.Singleton.IsServer)
+            return;
+        currentTimer = turnDuration;
+        timerRunning = true;
+
+        StartCoroutine(TimerRoutine());
+    }
+
+    // TURN TIMER ROUTINE, IF THE TIMER EXCEEDS, THE TURN ENDS AUTOMATICALLY
+    IEnumerator TimerRoutine()
+    {
+        while (timerRunning && currentTimer > 0f)
+        {
+            yield return new WaitForSeconds(1f);
+            currentTimer--;
+
+            // SEND TIMER UPDATE TO CLIENTS
+            TimerMessage msg = new TimerMessage
+            {
+                action = "timer",
+                timeLeft = (int)currentTimer
+            };
+
+                string json = JsonUtility.ToJson(msg);
+                NetworkGameManager.Instance.Broadcast(json);
+        }
+        if (currentTimer <= 0f)
+        {
+            timerRunning = false;
+
+                // CALLS AUTO END TURN
+            EndTurn(currentTurn.clientId);
+        }
+    }
+
+    // TURN INFO UPDATING
+    void SendTurnUpdate()
+    {
+        string info =
+            "Round: " + round +
+            " | Turn: " +
+            (currentTurn == player1 ?
+            "Player 1" : "Player 2");
+
+        TurnMessage msg = new TurnMessage
+        {
+            action = "turn",
+            turnInfo = info
+        };
+
+        string json = JsonUtility.ToJson(msg);
+
+        NetworkGameManager.Instance.Broadcast(json);
+    }
+
     // RETURNING THE CURRENT TURN PLAYER
     public PlayerState CurrentTurn => currentTurn;
-        // ENDING THE TURN AND CHECKING IF SENDER IS THE CURRENT PLAYER AND SERVER
+    // ENDING THE TURN AND CHECKING IF SENDER IS THE CURRENT PLAYER AND SERVER
     public void EndTurn(ulong senderId)       
     {
         if (!NetworkManager.Singleton.IsServer)  
@@ -73,10 +140,16 @@ public class GameManager : MonoBehaviour
         if (currentTurn.clientId != senderId)   
             return;
 
+        timerRunning =false;
+
+
         if (currentTurn == player1)               
             currentTurn = player2;
         else
             ResolveRound();
+
+        StartTurnTimer();
+        SendTurnUpdate();
     }
 
     void ResolveRound()                                    // RESOLVING THE TURNS AND CALCULATING SCORES, THEN CHECKING THE GAME IS OVER OR NOT
@@ -110,5 +183,8 @@ public class GameManager : MonoBehaviour
         currentTurn =
             Random.value > 0.5f ?
             player1 : player2;
+        
+        StartTurnTimer();
+        SendTurnUpdate();
     }
 }
