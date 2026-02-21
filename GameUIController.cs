@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using Unity.Netcode;
 using System.Collections;
+using TMPro;
 
 public class GameUIController : MonoBehaviour                   // THIS SCRIPT WILL CONTROLS THE GAME UI, THAT INCLUDES PLAY AND END TURN BUTTONS
 {
@@ -9,6 +10,14 @@ public class GameUIController : MonoBehaviour                   // THIS SCRIPT W
     public Button endButton;
 
     private PlayerState localPlayer;
+    public static GameUIController Instance;
+    public TMP_Text timerText;
+    public TMP_Text turnText;
+
+    void Awake()
+    {
+        Instance = this;
+    }
 
     IEnumerator Start()                                         // WAITING FOR THE LOCAL PLAYER TO BE ASSIGNED TO USE THE UI
     {
@@ -25,6 +34,16 @@ public class GameUIController : MonoBehaviour                   // THIS SCRIPT W
                 break;
             }
         }
+    }
+    public void UpdateTimer(int timeLeft)
+    {
+        if(timerText != null)
+            timerText.text = "Time: " + timeLeft;
+    }
+    public void UpdateTurnUI(string turnInfo)
+    {
+        if(turnText != null)
+            turnText.text = turnInfo;
     }
 
     public void OnPlay()                                        // PLAY BUTTON USED TO PLAY THE SELECTED CARDS
